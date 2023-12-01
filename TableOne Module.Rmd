@@ -1,0 +1,177 @@
+---
+title: "tableone"
+author: "Ilya Moskalenko"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+# PREPARING DATA
+```{r installing and loading packages, include=FALSE}
+#install.packages("tableone")
+library(tableone)
+
+#install.packages("dplyr")
+library(dplyr)
+
+install.packages("nhanesA")
+library(nhanesA)
+```
+
+```{r reading in and viewing the data}
+# the nhanes() function reads in NHANES specific data ("DEMO_H" in this case)
+data <- nhanes("DEMO_H")
+
+# viewing the first 6 rows of the data set
+head(data)
+```
+
+We see that there are 47 variables in the NHANES dataframe that we read in. Keeping the best practices of data science in mind, the **first step** would be to want select the **columns** that we are interested in analyzing. 
+
+1. **Select** variables that we are interested in:
+    * Gender (RIAGENDR)
+    * Age (RIDAGEYR)
+    * Race (RIDRETH3)
+    * Education (DMDEDUC2)
+
+```{r selecting variables of interest}
+data <- data %>% select(
+               c("RIAGENDR", # Gender 
+                 "RIDAGEYR", # Age
+                 "RIDRETH3", # Race
+                 "DMDEDUC2")) # Education
+               
+head(data)
+```
+
+2. **Translate** variable names and data points into meaningful data. The NHANES data set is a big data set and the information is coded as factors (the numbers we see in the raw dataset) because they take up less space. The *translation* process will convert the numbers into their corresponding real values.
+
+```{r translating the NHANES code into meaningful data}
+data <- nhanesTranslate("DEMO_H",
+                 c("RIAGENDR", # Gender 
+                   "RIDAGEYR", # Age
+                   "RIDRETH3", # Race
+                   "DMDEDUC2"), # Education
+                   data = data)
+
+head(data)
+```
+
+3. *Rename* column names to something more legible after performing the translation.
+
+```{r changing the column names}
+data <- data %>% rename( 
+       Gender= RIAGENDR,
+       Age= RIDAGEYR,
+       Race= RIDRETH3,
+       Education= DMDEDUC2)
+
+head(data)
+```
+
+\newpage
+
+# USING TABLEONE
+
+Create simple **Table 1** using **tableone** package.
+
+```{r creating our simple table one}
+tableone <- CreateTableOne(data = data, # the data set
+               vars = c("Gender", "Age", "Race", "Education"), # all variables
+               factorVars = c("Gender", "Race", "Education")) # factors only
+              
+tableone
+```
+
+\newpage
+
+## showAllLevels and cramVars
+
+### showAllLevels
+
+We see that the **Gender** variable only shows the percent of the study population that is “Female”. To show both “Female” and “Male” categories, we utilize the **showAllLevels = TRUE** argument within a **print()** function. This will also show all the factor levels for all of the variables in the dataframe.
+
+```{r showing all levels}
+print(tableone, showAllLevels = TRUE)
+```
+
+### cramVars
+
+If we want to better utilize the space of a certain categorical variable (factor) we can print it all on one line using the **cramVars = ** argument as done with gender in this instance. NOTE: This only works with *binary classifiers* because otherwise it would get too crammed to discern the data.
+
+```{r cramming certain levels on one line}
+print(tableone, cramVars = "Gender")
+```
+\newpage
+
+## Addressing Data that is NOT Normally Distributed
+
+If for instance, some of our continuous data is not normally distributed it would be more informative to report a median with an IQR rather than just a percent composition value to a journal publication. You can do this by indicating which variables are not normally distributed. NOTE: For the purposes of this tutorial, we are just showing how to use this feature on the **Age** variable without evaluating the normality of the distribution.
+
+```{r}
+print(tableone, nonnormal = "Age")
+```
+
+\newpage
+
+## Showing Only Categorical or Only Continuous Variables
+
+### Only Categorical
+
+```{r}
+# Categorical variables only
+print(tableone$CatTable)
+```
+### Only Continuous
+
+```{r}
+# Continuous variables only
+print(tableone$ContTable, nonnormal = "Age")
+```
+
+\newpage
+
+## Stratifying Your Data
+
+Stratifying our data across a variable such as **Gender** is potentially the most useful part of using the **tableone** package to analyze study data. For the purposes of this tutorial, the data was stratified based on *Gender* for demonstration purposes. However, data will typically be stratified by the exposure of interest that *Epidemiologists* and *Biostatisticians* are trying to evaluate. This is especially useful for studies that have multiple treatment arms (control, treatment 1, treatment 2, treatment 1 + treatment 2).
+
+Stratifying your data also yields **p-values**. The *chisq.test()* is the default test for **categorical variables**. The *oneway.test() (regular ANOVA)* is the default test for **normal continuous variables**. Meanwhile, the The *kruskal.test()* is the default test for **nonnormal continuous variables**
+
+### Stratified Table 1 with Normal Values
+```{r}
+tableone_stratified <- CreateTableOne(data = data, # the data set
+               vars = c("Age", "Race", "Education"), # all variables
+               factorVars = c("Race", "Education"), # factors only
+               strata = "CO_clean") # stratifying variable (exposure of interest)
+
+tableone_stratified <- CreateTableOne(data = glucose.data, # the data set
+               vars = c("age", "cursmoke", "cigpday", "sex","educ"), # all variables
+               factorVars = c("cursmoke", "cigpday", "sex","educ"), # factors only
+               strata = "glucose.cat") # stratifying variable (exposure of interest)
+              
+print(tableone_stratified)
+```
+
+### Stratified Table 1 with Nonnormal Values
+```{r}
+print(tableone_stratified, 
+      nonnormal = "Age")
+```
+
+\newpage
+
+# Downloading Your Table 1 to your Machine
+
+This code prepares our created *Table 1* for downloading.
+```{r}
+tableone_csv <- print(tableone_stratified,
+                 printToggle = FALSE) # need to include this argument
+tableone_csv
+```
+
+This code creates a csv file in your working directory.
+```{r}
+write.csv(tableone_csv, # name of your Table 1
+          file = "Table_1.csv") # name of the created file
+```
+
