@@ -1,0 +1,382 @@
+---
+title: "DAGs"
+author: "Ilya Moskalenko"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+  output:
+  pdf_document:
+    toc: yes
+---
+
+
+*******
+
+\newpage
+
+# Part 0: Introduction
+
+## 0.1: Resources
+
+**ggdag**
+https://cran.r-project.org/web/packages/ggdag/readme/README.html#
+
+**DiagrammeR**
+https://www.graphviz.org/doc/info/shapes.html
+https://rich-iannone.github.io/DiagrammeR/index.html
+
+## 0.2: Package Installation
+
+```{r}
+# install.packages("ggdag")
+# install.packages("DiagrammeR")
+# install.packages("dagitty")
+```
+
+## 0.3: Loading Libraries
+
+```{r, message=FALSE}
+library(ggdag)
+library(dagitty)
+library(tidyverse)
+library(DiagrammeR)
+```
+
+## 0.4: Creating one layer for beautification 
+
+```{r}
+# ggdag uses the same syntax as ggplot
+beautification <- theme_minimal() + 
+  theme(panel.grid.major = element_blank(),  # Remove major grid lines
+        panel.grid.minor = element_blank(),  # Remove minor grid lines
+        axis.text = element_blank(),         # Remove axis labels
+        axis.ticks = element_blank(),        # Remove axis tick marks
+        axis.title = element_blank())        # Remove axis titles
+```
+
+\newpage
+
+# Part 1: ggdag
+
+## 1.1 DAG Setup: Mapping Nodes Positions, Mapping Arrows, and Labelling Nodes
+
+```{r}
+# Define the x and y coordinates for nodes in the DAG (Directed Acyclic Graph)
+node_positions <- list(
+  x = c(A = 0, W1 = 0, W2 = 1, D = 0.5,  Y = 1),  # X-coordinates for nodes
+  y = c(A = 0, W1 = 1, W2 = 1, D = -1,  Y = 0)   # Y-coordinates for nodes
+)
+
+# Create a DAG (Directed Acyclic Graph) using the dagify function
+dag <- dagify(
+  A ~ W1 + W2,           # Define the edges in the DAG
+  Y ~ A + W1 + W2,
+  D ~ A + Y,
+  labels = c(            # Assign labels to nodes
+    A = "Smoking\n (Exposure)",    # Label for node A
+    Y = "Obesity\n (Outcome)",     # Label for node Y
+    D = "Diabetes",                # Label for node D
+    W1 = "SES",                    # Label for node W1
+    W2 = "Education"               # Label for node W2
+  ),
+  coords = node_positions,  # Use the specified node positions
+  exposure = "A",           # Specify the exposure variable
+  outcome = "Y"            # Specify the outcome variable
+)
+```
+
+## 1.2: Visualizing simple DAG
+
+```{r}
+dag %>%
+  ggdag() # Like ggplot only for DAGs
+```
+
+## 1.3: Visualizing simple DAG + Beautification
+
+```{r}
+dag %>%
+  ggdag() + 
+  beautification # Adding Beautification
+```
+
+## 1.4: Visualizing the adjustment set
+
+```{r}
+dag %>%
+  ggdag_adjustment_set() + # Showing Adjustment sets 
+  beautification
+```
+
+## 1.5: Visualizing pathways between nodes with shadows
+
+```{r}
+dag %>% 
+  ggdag_paths(from="A", to= "Y", # Specifying starting and ending nodes
+              adjust_for = "W2", # Adjusting for a node
+              shadow = TRUE) + # Showing a shadow for the other nodes rather than removing them (Best Practice)
+  beautification
+```
+
+## 1.6: Visualizing pathways between nodes without shadows
+
+```{r}
+dag %>% 
+  ggdag_paths(from="A", to= "Y", # Specifying starting and ending nodes
+              adjust_for = "W2", # Adjusting for a node
+              shadow = FALSE) + # Only showing pathways (NOT best practice)
+  beautification
+```
+
+## 1.7: Visualizing with neat labels
+
+```{r}
+dag %>% 
+  ggdag(text = FALSE, # Do NOT use A, Y, W1, W2, D
+        use_labels = "label") + # Use the corresponding labels 
+  beautification
+```
+
+
+*******
+
+\newpage
+
+# Part 2: dagitty + ggdag
+
+A good **use case** for using the dagitty website is when you are performing an **exploratory analysis** and are playing around with a lot of variables.
+
+## 2.1: Navigate to Dagitty Website, Create a DAG, Copy the Code
+
+Dagitty Website: https://dagitty.net
+  
+## 2.2: Paste the Code into Code Chunk + Wrap in dagitty() function
+
+Make sure to wrap the **dagitty()** function around the code copied from Dagitty website.
+
+```{r}
+dag <- dagitty('dag {
+A [exposure,pos="-1.642,0.826"] 
+D [pos="-0.502,1.607"]
+W1 [pos="-1.666,-0.450"]
+W2 [pos="0.656,-0.465"]
+Y [outcome,pos="0.662,0.865"]
+A -> D
+A -> Y
+W1 -> A
+W1 -> Y
+W2 -> A
+W2 -> Y
+Y -> D
+}
+')
+
+dag %>% 
+  ggdag() + beautification
+```
+
+
+### 2.2.1: Paste the Code into Code Chunk + Wrap in dagitty() function with Comments
+
+'dag {
+A [exposure,pos="-1.372,1.120"]    # Node A with exposure and position
+D [pos="-0.339,1.675"]             # Node D with position
+W1 [pos="-1.369,0.288"]            # Node W1 with position
+W2 [pos="0.661,0.288"]             # Node W2 with position
+Y [outcome,pos="0.668,1.149"]      # Node Y as an outcome variable with position
+A -> D                             # Directed edge from A to D
+A -> Y                             # Directed edge from A to Y
+W1 -> A                            # Directed edge from W1 to A
+W1 -> Y                            # Directed edge from W1 to Y
+W2 -> A                            # Directed edge from W2 to A
+W2 -> Y                            # Directed edge from W2 to Y
+Y -> D                             # Directed edge from Y to D
+}
+'
+
+## 2.3: Manually Adjusting Coordinates for Visual Symmetry
+
+```{r}
+dag <- dagitty('dag {
+D [pos="0,1.5"]
+W1 [pos="1,0.5"]
+Y [outcome,pos="1,1"]
+W2 [pos="-1,0.5"]
+A [exposure,pos="-1,1"]
+A -> D
+A -> Y
+W1 -> A
+W1 -> Y
+W2 -> A
+W2 -> Y
+Y -> D
+}
+')
+
+dag %>% 
+  ggdag() +
+  beautification
+```
+
+\newpage
+
+*******
+
+# Part 3: DiagrammeR
+
+## 3.1: Simple DAG
+
+```{r}
+DiagrammeR::grViz("
+digraph {
+  graph [ranksep = 0.2] 
+  node [shape = plaintext]
+    A 
+    Y 
+    D 
+    W1
+    W2
+  edge [minlen = 2]
+    A->Y
+    A->D
+    Y->D
+    W1->A
+    W1->Y
+    W2->A
+    W2->Y
+    
+  { rank = same; A; Y }
+}
+")
+```
+
+### 3.1: Simple DAG with Comments
+
+DiagrammeR::grViz("
+digraph {
+  graph [ranksep = 0.2]       # Set the vertical distance between ranks in the graph
+  node [shape = plaintext]    # Set the shape of nodes as plaintext (for custom labels)
+    A                         # Define node A
+    Y                         # Define node Y
+    D                         # Define node D
+    W1                        # Define node W1
+    W2                        # Define node W2
+  edge [minlen = 2]           # Set the minimum length of edges to 2 units
+    A->Y                      # Create an edge from A to Y
+    A->D                      # Create an edge from A to D
+    Y->D                      # Create an edge from Y to D
+    W1->A                     # Create an edge from W1 to A
+    W1->Y                     # Create an edge from W1 to Y
+    W2->A                     # Create an edge from W2 to A
+    W2->Y                     # Create an edge from W2 to Y
+    
+  { rank = same; A; Y }       # Specify that nodes A and Y should be on the same rank
+}
+")
+
+## 3.2: Adding Node Labels
+
+```{r}
+DiagrammeR::grViz("
+digraph {
+  graph [ranksep = 0.2]
+  node [shape = plaintext]
+    A [label = 'Smoking']
+    Y [label = 'Obesity']
+    D [label = 'Diabetes']
+    W1 [label = 'SES']
+    W2 [label = 'Education']
+  edge [minlen = 2]
+    A->Y
+    A->D
+    Y->D
+    W1->A
+    W1->Y
+    W2->A
+    W2->Y
+    
+  { rank = same; A; Y }
+}
+")
+```
+
+## 3.3: Modifying Node Spacing
+
+```{r}
+DiagrammeR::grViz("
+digraph {
+  graph [ranksep = 0.4]
+  node [shape = plaintext]
+    A [label = 'Smoking']
+    Y [label = 'Obesity']
+    D [label = 'Diabetes']
+    W1 [label = 'SES']
+    W2 [label = 'Education']
+  edge [minlen = 2]
+    A->Y
+    A->D
+    Y->D
+    W1->A
+    W1->Y
+    W2->A
+    W2->Y
+    
+  { rank = same; A; Y }
+}
+")
+```
+
+## 3.4: Modifying Edge Length
+
+```{r}
+DiagrammeR::grViz("
+digraph {
+  graph [ranksep = 0.4]
+  node [shape = plaintext]
+    A [label = 'Smoking']
+    Y [label = 'Obesity']
+    D [label = 'Diabetes']
+    W1 [label = 'SES']
+    W2 [label = 'Education']
+  edge [minlen = 4]
+    A->Y
+    A->D
+    Y->D
+    W1->A
+    W1->Y
+    W2->A
+    W2->Y
+    
+  { rank = same; A; Y }
+}
+")
+```
+
+## 3.5: Adding Boxes to Indicate Adjusted Variables
+
+```{r}
+DiagrammeR::grViz("
+digraph {
+  graph [ranksep = 0.4]
+  node [shape = plaintext]
+    A [label = 'Smoking']
+    Y [label = 'Obesity']
+    D [label = 'Diabetes']
+    W1 [label = 'SES', shape = box]
+    W2 [label = 'Education', shape = box]
+  edge [minlen = 4]
+    A->Y
+    A->D
+    Y->D
+    W1->A
+    W1->Y
+    W2->A
+    W2->Y
+    
+  { rank = same; A; Y }
+}
+")
+```
+
