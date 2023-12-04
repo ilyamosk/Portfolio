@@ -1,0 +1,261 @@
+---
+title: "Leaflet Module 2: Layer Control"
+author: "Ilya Moskalenko"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: yes
+    df_print: paged
+---
+
+
+***************************************************
+
+# Part 1: Loading Libraries and Reading in Data 
+
+
+```{r libraries, message=FALSE}
+library(tidyverse)
+library(leaflet)
+library(sp)
+library(janitor)
+```
+
+For this activity we will be **Mapping Prominent Hospital Systems in California using Leaflet**.
+
+As done in **Leaflet Module 1**, we will read in the data set. Since we are only mapping the prominent hospital systems in California, we can filter the data set during our read in step for only hospitals that are located within California. 
+
+```{r data import}
+# reading in 'Hospital' df and filtering where state is California
+df_hospitals <- read_csv('Hospitals.csv') %>%
+  filter(STATE == 'CA') %>% # Filtering out Puerto Rico
+  clean_names() # From janitor package (columns lowercased & replaces punctuation and spacing with "_")
+```
+# Part 2: Creating Health Network Specific Data Frames
+
+As part of this Leaflet module, I will be teaching **Layer Control** which allows for a user to select which features appear on the map. Since we are interested in creating a map of the prominent health networks in California, we will first need to create data frames that are specific to each health network. 
+
+```{r filtering data}
+# UCLA hospitals df
+df_ucla <- df_hospitals %>%
+  filter(str_detect(name, 'UCLA')) # 'str_detect()' is part of the stringr package
+
+# UCSF hospitals df
+df_ucsf <- df_hospitals %>%
+  filter(str_detect(name, 'UCSF'))
+
+# Cedars Sinai hospitals df
+df_cedars <- df_hospitals %>%
+  filter(str_detect(name, 'CEDARS'))
+
+# Kaiser Permanente hospitals df
+df_kaiser <- df_hospitals %>%
+  filter(str_detect(name, 'KAISER'))
+
+# UCSD hospitals df
+df_ucsd <- df_hospitals %>%
+  filter(str_detect(name, 'UC SAN DIEGO'))
+
+# Stanford hospitals df
+df_stanford <- df_hospitals %>%
+  filter(str_detect(name, 'STANFORD'))
+```
+
+***************************************************
+
+# Part 3: Creating Health Network Specific SPDFs
+
+We will now create a Spatial Points Data Frame (SPDF) for each dataframe that is specific to each healthcare network using the healthcare specific data frames created in the previous step. 
+
+If you need a refresher on what an SPDF is, please refer back to the Intro Leaflet Module.
+
+```{r SPDF}
+# Create SpatialPointsDataFrame for UCLA hospitals
+spdf_ucla <- SpatialPointsDataFrame(
+  coords = df_ucla[,c('longitude','latitude')],
+  data = df_ucla[,c('name','address','beds','telephone')],
+  proj4string = CRS(SRS_string = "EPSG:4326")) # NOTE: updated from the video
+
+# Create SpatialPointsDataFrame for UCSF hospitals
+spdf_ucsf <- SpatialPointsDataFrame(
+  coords = df_ucsf[,c('longitude','latitude')],
+  data = df_ucsf[,c('name','address','beds','telephone')],
+  proj4string = CRS(SRS_string = "EPSG:4326")) # NOTE: updated from the video
+
+# Create SpatialPointsDataFrame for Kaiser Permanente hospitals
+spdf_kaiser <- SpatialPointsDataFrame(
+  coords = df_kaiser[,c('longitude','latitude')],
+  data = df_kaiser[,c('name','address','beds','telephone')],
+  proj4string = CRS(SRS_string = "EPSG:4326")) # NOTE: updated from the video 
+
+# Create SpatialPointsDataFrame for Cedars Sinai hospitals
+spdf_cedars <- SpatialPointsDataFrame(
+  coords = df_cedars[,c('longitude','latitude')],
+  data = df_cedars[,c('name','address','beds','telephone')],
+  proj4string = CRS(SRS_string = "EPSG:4326")) # NOTE: updated from the video
+
+# Create SpatialPointsDataFrame for UCSD hospitals
+spdf_ucsd <- SpatialPointsDataFrame(
+  coords = df_ucsd[,c('longitude','latitude')],
+  data = df_ucsd[,c('name','address','beds','telephone')],
+  proj4string = CRS(SRS_string = "EPSG:4326")) # NOTE: updated from the video
+
+# Create SpatialPointsDataFrame for Stanford hospitals
+spdf_stanford <- SpatialPointsDataFrame(
+  coords = df_stanford[,c('longitude','latitude')],
+  data = df_stanford[,c('name','address','beds','telephone')],
+  proj4string = CRS(SRS_string = "EPSG:4326")) # NOTE: updated from the video
+```
+
+***************************************************
+
+# Part 4: Setting Up Map Layers
+
+```{r}
+# Create a Leaflet map object
+map <- leaflet() %>%
+  
+  # Set the base map tiles to CartoDB Positron (a light-colored map)
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  
+  # UCLA Layer
+  addCircleMarkers(
+    data = spdf_ucla, # Specify UCLA SPDF
+    color = 'white',    
+    weight = 1,         
+    fillColor = 'blue', 
+    fillOpacity = 0.7,  
+    radius = 2.5,
+    popup = paste(      
+      'Corporation name:', spdf_ucla$name, '<br>', # Specify "name" column in UCLA SPDF
+      'address:', spdf_ucla$address, '<br>',       # Specify "address" column in UCLA SPDF
+      'beds:', spdf_ucla$beds, '<br>',             # Specify "beds" column in UCLA SPDF 
+      'Phone:', spdf_ucla$telephone, '<br>'        # Specify "telephone" column in UCLA SPDF 
+    ),
+    group="UCLA"                                   # Group is UCLA
+  ) %>%
+  
+  # UCSF Layer
+  addCircleMarkers(
+    data = spdf_ucsf,# Specify UCSF SPDF
+    color = 'white',    
+    weight = 1,         
+    fillColor = 'blue', 
+    fillOpacity = 0.7,  
+    radius = 2.5,
+    popup = paste(
+      'Corporation name:', spdf_ucsf$name, '<br>', # Specify "name" column in UCSF SPDF
+      'address:', spdf_ucsf$address, '<br>',       # Specify "address" column in UCSF SPDF
+      'beds:', spdf_ucsf$beds, '<br>',             # Specify "beds" column in UCSF SPDF 
+      'Phone:', spdf_ucsf$telephone, '<br>'        # Specify "telephone" column in UCSF SPDF 
+    ),
+    group="UCSF" # Group is UCSF
+  ) %>%
+  
+  # Cedars Sinai Layer
+  addCircleMarkers(
+    data = spdf_cedars, # Specify Cedars SPDF
+    color = 'white',    
+    weight = 1,         
+    fillColor = 'blue', 
+    fillOpacity = 0.7,  
+    radius = 2.5,
+    popup = paste(
+      'Corporation name:', spdf_cedars$name, '<br>', # Specify "name" column in Cedars SPDF
+      'address:', spdf_cedars$address, '<br>',       # Specify "address" column in Cedars SPDF
+      'beds:', spdf_cedars$beds, '<br>',             # Specify "beds" column in Cedars SPDF 
+      'Phone:', spdf_cedars$telephone, '<br>'        # Specify "telephone" column in Cedars SPDF 
+    ),
+    group= "Cedars Sinai"
+  ) %>%
+  
+  # Kaiser Permanente Layer
+  addCircleMarkers(
+    data = spdf_kaiser, # Specify Kaiser SPDF
+    color = 'white',    
+    weight = 1,         
+    fillColor = 'blue', 
+    fillOpacity = 0.7,  
+    radius = 2.5,
+    popup = paste(
+      'Corporation name:', spdf_kaiser$name, '<br>', # Specify "name" column in Kaiser SPDF
+      'address:', spdf_kaiser$address, '<br>',       # Specify "address" column in Kaiser SPDF
+      'beds:', spdf_kaiser$beds, '<br>',             # Specify "beds" column in Kaiser SPDF 
+      'Phone:', spdf_kaiser$telephone, '<br>'        # Specify "telephone" column in Kaiser SPDF
+    ),
+    group= "Kaiser Permanente"
+  ) %>%
+  
+  # UCSD Layer
+  addCircleMarkers(
+    data = spdf_ucsd, # Specify UCSD SPDF
+    color = 'white',    
+    weight = 1,         
+    fillColor = 'blue', 
+    fillOpacity = 0.7,  
+    radius = 2.5,
+    popup = paste(
+      'Corporation name:', spdf_ucsd$name, '<br>', # Specify "name" column in UCSD SPDF
+      'address:', spdf_ucsd$address, '<br>',       # Specify "address" column in UCSD SPDF
+      'beds:', spdf_ucsd$beds, '<br>',             # Specify "beds" column in UCSD SPDF 
+      'Phone:', spdf_ucsd$telephone, '<br>'        # Specify "telephone" column in UCSD SPDF
+    ),
+    group = "UCSD"
+  ) %>%
+  
+  # Stanford Layer
+  addCircleMarkers(
+    data = spdf_stanford, # Specify Stanford SPDF
+    color = 'white',    
+    weight = 1,         
+    fillColor = 'blue', 
+    fillOpacity = 0.7,  
+    radius = 2.5,
+    popup = paste(
+      'Corporation name:', spdf_stanford$name, '<br>', # Specify "name" column in Stanford SPDF
+      'address:', spdf_stanford$address, '<br>',       # Specify "address" column in Stanford SPDF
+      'beds:', spdf_stanford$beds, '<br>',             # Specify "beds" column in Stanford SPDF 
+      'Phone:', spdf_stanford$telephone, '<br>'        # Specify "telephone" column in Stanford SPDF
+    ), 
+    group = "Stanford"
+  ) %>%
+  
+  # Add a legend to the map
+  addLegend(
+    position = 'topright',  
+    title = 'Marker Colors',
+    labels = c('Hospital'), 
+    colors = c('blue'),     
+    opacity = 1             
+  ) 
+```
+
+***************************************************
+
+# Part 5: Implementing Layer Control
+
+## 5.1: Layer Control Drop Down
+
+```{r}
+map %>%
+# Add a layer control
+  addLayersControl(
+    overlayGroups = c("UCLA", "UCSF", "Cedars Sinai", 
+                      "Kaiser Permanente", "UCSD", "Stanford"),   
+    options = layersControlOptions(collapsed = TRUE) # Collapsing the Layer control
+  )
+```
+
+## 5.2: Layer Control Default
+
+```{r}
+map %>%
+# Add a layer control
+  addLayersControl(
+    overlayGroups = c("UCLA", "UCSF", "Cedars Sinai", 
+                      "Kaiser Permanente", "UCSD", "Stanford"),   
+    options = layersControlOptions(collapsed = FALSE) # Expanded by default
+  )
+```
+
+As you may have noticed, this code was all very repetitive! **Leaflet Module 3: Automation with Leaflet** will cover **Automation** to optimize your code. In this module you will learn how to utilize data structures, leverage functions and loops to **Automate** your code. 

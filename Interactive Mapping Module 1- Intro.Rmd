@@ -1,0 +1,363 @@
+---
+title: "Leaflet Module 1: Introduction"
+author: "Ilya Moskalenko"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: yes
+    df_print: paged
+---
+
+
+\newpage
+
+***************************************************
+
+# Part 1: Intro to Leaflet
+
+Hi All, welcome to GIS using the Leaflet R library!
+
+## 1.1: Resources
+
+Info on Admin Boundaries:
+
+- [Link](https://en.wikipedia.org/wiki/List_of_administrative_divisions_by_country)
+
+Leaflet GitHub Repo:
+
+- [Link](https://rstudio.github.io/leaflet/)
+
+Extra Leaflet Practice:
+
+- [Link to Geeks for Geeks](https://www.geeksforgeeks.org/leaflet-package-in-r/)
+
+- [Link to Earth Data Science](https://www.earthdatascience.org/courses/earth-analytics/get-data-using-apis/leaflet-r/)
+
+## 1.2: Libraries
+
+```{r libraries, message=FALSE}
+library(tidyverse)
+#install.packages("leaflet")
+library(leaflet) # Interactive mapping library
+library(sp) # Spatial data objects library
+library(janitor) # Clean names library
+library(viridis) # Accessible color palette library
+```
+
+***************************************************
+
+\newpage
+
+# Part 2: Data Preprocessing
+
+## 2.1: Read in Data
+
+For this module, we will use an open source Hospital data set from ArcGIS Online. Specifically, this dataset provides the locations of all the Hospitals in the United States.
+
+For more information you can navigate to the data source using the following link:
+
+- [Link](https://hifld-geoplatform.opendata.arcgis.com/datasets/hospitals/explore?location=41.782325%2C-115.894111%2C4.12&showTable=true)
+
+```{r data import}
+# reading in 'Hospital' df and filtering where state is California
+df_hospitals <- read_csv('Hospitals.csv') %>%
+  filter(STATE != 'PR') %>% # Filtering out Puerto Rico
+  clean_names() # From janitor package (columns lowercased & replaces punctuation and spacing with "_")
+```
+## 2.2: Look at Data
+
+The data set has 34 features (another word for columns) and therefore has a lot of potential for rich analyses and visualizations. For the purposes of this module, we will only be leveraging 7 features:
+
+- **latitude**: latitude of hospital
+
+- **longitude**: longitude of hospital
+
+- **name**: name of hospital
+
+- **address**: address of hospital
+
+- **beds**: bed capacity of hospital
+
+- **telephone**: telephone of hospital
+
+- **owner**: ownership type of the hospital (private, non-profit, government)
+
+```{r}
+head(df_hospitals)
+
+summary(df_hospitals)
+```
+
+As we can see, one of the features that we are using **beds** has negative values which is odd for something that should not be a negative value. Specifically, -999 is often used to signify a **missing value**. Therefore, I will **filter** out all negative values from this feature (I will actually filter for beds > 200 so the visualizations are a bit less cluttered). 
+
+We will also be using the **owner** column and I want to clean up those values a bit. I will leverage the **stringr** library (part of tidyverse) to abbreviate "GOVERNMENT" and also transform the values to title case (All word lowercased with first letter of each word being uppercased).   
+
+This **highlights** the importance at taking a look at your data (especially the features that are of interest) before processing it.
+
+```{r}
+df_hospitals <- df_hospitals %>% 
+  filter(beds>200) %>%
+  mutate(owner= str_to_title(str_replace(owner,"GOVERNMENT -", "GOV")))
+
+head(df_hospitals)
+```
+
+## 2.3: Create Spatial Points Data Frame (SPDF)
+
+To build a map leveraging **Leaflet**, we need to transform our data into a **Spatial Points Data Frame (SPDF)**. An **SPDF** is a data structure commonly used in geographical information systems (GIS) and spatial analyses. It is a specific data format that combines the attributes of a traditional data frame or table with spatial information, such as coordinates (latitude and longitude) to represent point locations on the Earth's surface. 
+
+```{r SPDF}
+# Create a new SpatialPointsDataFrame object named 'spdf_hospitals' to represent geographical data
+spdf_hospitals <- SpatialPointsDataFrame(
+  # Specify the coordinates for the points using the 'longitude' and 'latitude' columns from 'df_hospitals'
+  # Reminder, we can subset columns in a data frame using this format: df[,c('a','b')]
+  coords = df_hospitals[,c('longitude','latitude')], 
+  # Include data attributes associated with each point using selected columns from 'df_hospitals'
+  data = df_hospitals[,c('name','address','beds','telephone', 'owner')],
+  # Define the projection information for the data, using EPSG 4326
+  
+  # NOTE: this line of code was updated from the video module to reflect package retirement
+  proj4string = CRS(SRS_string = "EPSG:4326") # CRS is "Coordinate Reference System"
+)
+```
+
+***************************************************
+
+# Part 3: Mapping
+
+## 3.1: Initial Map Layer
+
+```{r}
+# Create a Leaflet map object
+map <- leaflet() %>% # Similar to intial ggplot() layer
+  setView(lng = -96.25, lat = 39.50, zoom = 4) # Setting the Zoom to the US 
+```
+
+## 3.2: Map Themes
+
+Here are a few preset themes using **addProviderTiles()** that you can use to determine the topography of your map and you can navigate to the following link for more themes!
+
+- [Link](https://leaflet-extras.github.io/leaflet-providers/preview/)
+
+```{r}
+# Default basic theme
+map %>% addTiles()
+
+# Use a theme from the Leaflet Providers plug-in - CartoDB Positron
+map %>% addProviderTiles(providers$CartoDB.Positron)
+
+# Use the "Stamen.Toner" theme for the map
+map %>% addProviderTiles("Stamen.Toner")
+
+# Replace or add a new comment for the next line: Use the "Esri.NatGeoWorldMap" theme for the map
+map %>% addProviderTiles("Esri.NatGeoWorldMap")
+
+# Specify a custom map tile URL template as an argument to addTiles
+map %>% addTiles("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png")
+
+# Explore more built-in Provider themes in R - in this case, CartoDB Voyager
+map %>% addProviderTiles(providers$CartoDB.Voyager)
+```
+
+## 3.3: Markers
+
+**addCircleMarkers()** is the function that allows us to add the data points from the SPDFs that we created onto the map.
+
+```{r}
+map %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+# -------------------------------------------------------------------------  
+  # Add circle markers for hospital data
+  addCircleMarkers(
+    data = spdf_hospitals,
+    color = 'white',    # Set the outline color to white
+    weight = 1.5,         # Set the weight of the outline
+    fillColor = 'blue',  # Set the fill color to blue
+    fillOpacity = 0.7,    # Set fill opacity for the circle markers
+    radius = 2.5
+  ) 
+```
+
+## 3.4: Modify Marker Information 
+
+### 3.4.1: Popups
+
+**Popups** are clickable markers that present information regarding that spatial data point.
+
+```{r}
+map %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addCircleMarkers(
+    data = spdf_hospitals,
+    color = 'white',    
+    weight = 1.5,       
+    fillColor = 'blue', 
+    fillOpacity = 0.7,  
+    radius = 2.5,
+# -------------------------------------------------------------------------    
+    # Define the popup content for each circle marker
+    popup = paste(      
+      'Name:', spdf_hospitals$name, '<br>',
+      'Address:', spdf_hospitals$address, '<br>',
+      'Beds:', spdf_hospitals$beds, '<br>',
+      'Phone:', spdf_hospitals$telephone, '<br>',
+      'Owner:', spdf_hospitals$owner, '<br>')
+# -------------------------------------------------------------------------
+  ) 
+```
+
+### 3.4.2: Labels
+
+**Labels** are hover markers that present information regarding that spatial data point.
+
+```{r}
+map %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addCircleMarkers(
+    data = spdf_hospitals,
+    color = 'white',    
+    weight = 1.5,       
+    fillColor = 'blue', 
+    fillOpacity = 0.7,  
+    radius = 2.5,
+# -------------------------------------------------------------------------        
+    label = paste(      # Define the popup content for each circle marker
+      'Hospital:', spdf_hospitals$name),
+    labelOptions = labelOptions(  
+        style = list(
+                    "font-family" = "serif",  # Font
+                    "font-family" = "serif",  # Font color
+                    "font-style" = "italic",  # Italicizing font
+                    "font-size" = "12px")))   # Font size
+```
+
+### 3.4.3: Cluster
+
+```{r}
+map %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addCircleMarkers(
+    data = spdf_hospitals,
+    color = 'white',    
+    weight = 1.5,       
+    fillColor = 'blue', 
+    fillOpacity = 0.7,  
+    radius = 2.5,
+# --------------------------------------------------------------------    
+    clusterOptions = markerClusterOptions(), # Add this line of code
+# --------------------------------------------------------------------
+) 
+```
+
+## 3.5: Add Legend
+
+```{r}
+map %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addCircleMarkers(
+    data = spdf_hospitals,
+    color = 'white',    
+    weight = 1.5,       
+    fillColor = 'blue', 
+    fillOpacity = 0.7,  
+    radius = 2.5,
+    popup = paste(      
+      'Name:', spdf_hospitals$name, '<br>',
+      'Address:', spdf_hospitals$address, '<br>',
+      'Beds:', spdf_hospitals$beds, '<br>',
+      'Phone:', spdf_hospitals$telephone, '<br>',
+      'Owner:', spdf_hospitals$owner, '<br>')) %>%
+# -------------------------------------------------------------------------  
+  # Add a legend to the map
+  addLegend(
+    position = 'topright',   # Position the legend in the top-right corner
+    title = 'Marker Colors', # Title for the legend
+    labels = c('Hospital'), # Labels for the legend
+    colors = c('blue'),      # Corresponding colors for the labels
+    opacity = 1             # Set the opacity of the legend
+  )
+```
+
+***************************************************
+
+\newpage
+
+# Part 4: Color Modifications
+
+## 4.1: Continuous Variables
+
+```{r}
+# --------------------------------------------------------------------------  
+# Define a color palette based on the "beds" column
+color_palette <- colorNumeric(
+  palette = viridis(7),  # Choose a color palette (e.g., viridis)
+  domain = spdf_hospitals$beds)  # Specify the data column for color mapping
+# --------------------------------------------------------------------------  
+map %>%
+ addProviderTiles(providers$CartoDB.Positron) %>%
+  addCircleMarkers(
+    data = spdf_hospitals,
+# --------------------------------------------------------------------------    
+    color = color_palette(spdf_hospitals$beds),  # Use the color palette
+# --------------------------------------------------------------------------  
+    weight = 1,
+    fillOpacity = 0.7,
+    radius = 1.5,
+    popup = paste(
+      'Name:', spdf_hospitals$name, '<br>',
+      'Address:', spdf_hospitals$address, '<br>',
+      'Beds:', spdf_hospitals$beds, '<br>',
+      'Phone:', spdf_hospitals$telephone, '<br>'
+    )
+  ) %>%
+  addLegend(
+    position = "topright",
+# --------------------------------------------------------------------------  
+    pal = color_palette,              # Updating the legend to reflect color
+    values = spdf_hospitals$beds,   
+    title = "Beds",                
+# --------------------------------------------------------------------------  
+    opacity = 1
+  )
+```
+
+## 4.2: Categorical Variables
+
+```{r}
+color_palette <- colorFactor(
+  palette = viridis(7),  
+# --------------------------------------------------------------------------  
+  domain = spdf_hospitals$owner  # Specify the data column for color mapping
+# --------------------------------------------------------------------------  
+)
+
+map %>%
+ addProviderTiles(providers$CartoDB.Positron) %>%
+ addCircleMarkers(
+   data = spdf_hospitals,
+# --------------------------------------------------------------------------  
+   color = ~color_palette(spdf_hospitals$owner),  # Use the color palette
+# --------------------------------------------------------------------------  
+   weight = 1,
+   fillOpacity = 0.7,
+   radius = 1.5,
+   popup = paste(
+     'Name:', spdf_hospitals$name, '<br>',
+     'Address:', spdf_hospitals$address, '<br>',
+     'Owner:', spdf_hospitals$owner, '<br>',
+     'Phone:', spdf_hospitals$telephone, '<br>'
+   )
+ ) %>%
+ addLegend(
+   position = "topright",
+   pal = color_palette,  
+# --------------------------------------------------------------------------  
+   values = spdf_hospitals$owner, # Updating the legend to reflect color
+   title = "Owner",
+# -------------------------------------------------------------------------- 
+   opacity = 1
+ )
+```
+
+
+**Leaflet Module 2** will pull on concepts from this module and teach how to implement **Layer Control** a neat interactive mapping feature!
