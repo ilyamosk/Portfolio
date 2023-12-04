@@ -1,0 +1,326 @@
+---
+title: "Leaflet Module 3: Automation"
+author: "Ilya Moskalenko"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+\newpage
+
+# Part 1: Data Structures
+
+## Vector
+
+### Definition:
+
+A `vector` is a one-dimensional, homogeneous data structure in R that can store a sequence of values of the same data type. It can be numeric, character, logical, or other types.
+
+### Use Cases:
+
+-   Storing a collection of numbers, such as ages or test scores.
+-   Holding a series of textual data like names or labels.
+-   Managing logical values (TRUE/FALSE) for binary decisions or conditions.
+
+## Data Frame (Tibble)
+
+### Definition:
+
+A `data frame` is a two-dimensional, tabular data structure in R. It is similar to a spreadsheet or a SQL table, where data is organized into rows and columns. Each column can have a different data type, but all columns must have the same number of rows.
+
+### Use Cases:
+
+-   Importing and working with structured data from external sources like CSV files, Excel sheets, or databases.
+-   Data manipulation and analysis, including filtering, grouping, and summarizing data.
+-   Data visualization using libraries like ggplot2, which works seamlessly with data frames.
+
+## List
+
+### Definition:
+
+A `list` is a versatile data structure in R that can contain elements of different data types, including vectors, data frames, other lists, and even functions. Lists are often used to create complex, hierarchical data structures.
+
+### Use Cases:
+
+-   Storing heterogeneous data that doesn't fit neatly into a matrix or data frame.
+-   Creating nested or hierarchical data structures, such as a list of lists.
+-   Organizing and managing data for more complex analyses or simulations.
+-   Storing and passing around related functions and their associated data.
+
+------------------------------------------------------------------------
+
+# Part 2: Automation Foundations
+
+## For Loops:
+
+### Definition:
+
+A `for loop` in R is a control structure used to process a set of statements repeatedly for a specific number of times or over elements of a sequence (like vectors, data frames, or lists). It iterates over a range of values or elements and executes the loop body for each iteration.
+
+### Use Cases
+
+Iterating over a `Vector`
+
+```{r}
+# Create a sample vector
+vector <- c(1:100)
+vector
+
+# Initialize an empty result vector
+result_vector <- numeric(length(vector))
+result_vector
+
+# Iterate through the indices of my_vector using seq_along()
+for (i in seq_along(vector)) {
+  result_vector[i] <- vector[i] * 2
+}
+
+# Indexing
+vector[3]*2
+vector[4]*2
+vector[5]*2
+
+# Print the vectors
+vector
+result_vector
+```
+
+Iterating over a `List`
+
+```{r}
+# Create a sample list with numeric vectors
+list_of_vectors <- list(
+  vector_1 = c(1:10),    # Create a numeric vector from 1 to 10 = c(1,2,3,4,5,6,7,8,9,10)
+  vector_2 = c(11:20),   # Create a numeric vector from 11 to 20
+  vector_3 = c(21:30),   # Create a numeric vector from 21 to 30
+  vector_4 = c(31:40)    # Create a numeric vector from 31 to 40
+)
+
+# Create a new list to store the results
+list_of_results <- list()
+
+# Iterate through the list and multiply each element by 2 (transforming the data), storing the results
+for (i in names(list_of_vectors)) {
+    list_of_results[[i]] <- list_of_vectors[[i]] * 2  # Multiply each element by 2 and store in list_of_results
+}
+
+# Print the modified list_of_results
+list_of_results
+```
+
+## Functions
+
+### Function
+
+In R, a `function` is a block of organized, reusable code that performs a specific task or set of tasks. Functions are an essential concept in R programming, and they serve several important purposes:
+
+-   `Modularity:` Functions allow you to break down your code into smaller, more manageable pieces. You can create functions for different tasks and then call these functions as needed. This modular approach makes your code more readable and maintainable.
+-   `Reusability:` Once you've defined a function, you can reuse it multiple times in your code. This helps in avoiding redundancy and promotes the efficient use of code.
+-   `Abstraction:` Functions provide a level of abstraction. You can use a function without needing to know the internal details of how it works. This abstraction simplifies the programming process.
+-   `Parameterization:` Functions can accept input parameters or arguments, which allow you to customize their behavior. Parameters provide flexibility and make functions adaptable to different situations.
+
+### Function 1
+
+Here all we are going to do is wrap a function around the for loop that we created in the previous code chunk.
+
+-   Input: 1 `List` of vectors.
+-   Transformation: Takes `List` and multiplies everyone by 2.
+-   Output: 1 `List` containing the transformed vectors.
+
+```{r}
+multiply_by_2_v1 <- function(input_list) {
+  # Create a new list to store the results
+  list_of_results <- list()
+  
+  # Iterate through the list and multiply each element by 2 (transforming the data), storing the results
+  for (i in names(list_of_vectors)) {
+      list_of_results[[i]] <- list_of_vectors[[i]] * 2  # Multiply each element by 2 and store in list_of_results
+  }
+  return(list_of_results)
+}
+
+multiply_by_2_v1(list_of_vectors)
+```
+
+### Function 2
+
+The function is will have 2 inputs. Input 1 will be a which will be a `list`. - Inputs: (i) 1 `List` of vectors (ii) 1 `Vector` of characters - Transformation: Takes `List` and multiplies everyone by 2. - Output: 1 `List` containing the transformed vectors.
+
+```{r}
+# Define the vector of SpatialPointsDataFrame names
+vector_of_names <- c("transformed_1","transformed_2","transformed_3","transformed_4")
+
+multiply_by_2_v2 <- function(input_list, output_names) {
+  # Create a new list to store the results
+  output_list <- list()
+
+  # Iterate through the list and multiply each element by 2 (transforming the data), storing the results
+  for (i in seq_along(input_list)) {
+    # Create a new vector with the transformed data
+    transformed_vector <- input_list[[i]] * 2
+    # Name the vector using the corresponding name from output_names
+    names(transformed_vector) <- output_names[i]
+    # Store the transformed vector in the output list
+    output_list[[i]] <- transformed_vector
+  }
+  return(output_list)
+}
+
+result_list <- multiply_by_2_v2(list_of_vectors, vector_of_names)
+
+# To access the transformed vectors with their new names, you can use result_list
+result_list
+```
+
+------------------------------------------------------------------------
+
+\newpage
+
+# Part 3:
+
+```{r libraries, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(leaflet)
+library(sp)
+library(rgdal)
+```
+
+```{r}
+# reading in 'Hospital' df and filtering where state is California
+hospitals_ca <- read_csv('Data Viz/Leaflet/Data/Hospitals.csv') %>%
+  filter(STATE== 'CA')
+```
+
+```{r}
+# Define a vector of hospital names and corresponding data frame names
+vector_groups <- c("UCLA", "UCSF", "CEDARS", "KAISER", "UC SAN DIEGO", "STANFORD")
+
+# Define the vector of SpatialPointsDataFrame names
+vector_df_names <- c("df_ucla", "df_ucsf", "df_cedars","df_kaiser", "df_ucsd", "df_stanford")
+
+# Define the vector of SpatialPointsDataFrame names
+vector_spdf_names <- c("spdf_ucla", "spdf_ucsf", "spdf_cedars","spdf_kaiser", "spdf_ucsd", "spdf_stanford")
+```
+
+\newpage
+
+# Function 1:
+
+```{r}
+knitr::include_graphics("Data Viz/Leaflet/Images/automation_function_1.png")
+```
+
+```{r}
+createDF <- function(groups = vector_groups, df_names = vector_df_names) {
+  # Create an empty list to store the data frames
+  list_of_dfs <- list()
+  
+  # Loop through each hospital name and create the corresponding data frame
+  for (i in seq_along(groups)) {
+    # Filter the data and store the result in list_of_dfs
+    list_of_dfs[[i]] <- hospitals_ca %>%
+      filter(str_detect(NAME, groups[i])) # Use str_detect to match the hospital names
+    
+    # Assign the list elements to individual data frame variables using assign()
+    assign(df_names[i], list_of_dfs[[i]])
+    
+    # Print the head of the DataFrame
+    print(head(list_of_dfs[[i]]))
+  }
+  
+  # Assign the list_of_dfs to the global environment
+  assign("list_of_dfs", list_of_dfs, envir = .GlobalEnv)
+}
+
+createDF(groups = vector_groups, df_names = vector_df_names)
+```
+
+\newpage
+
+# Function 2:
+
+```{r}
+knitr::include_graphics("Data Viz/Leaflet/Images/automation_function_2.png")
+```
+
+Inputs: (i) `List` containing each of the `Data Frames` (ii) `Vector` of SPDF names
+
+Output: (i) `List` containing each of the `Spatial Data Frames` with assigned SPDF names
+
+```{r}
+createSpatialPointsDataFrames <- function(list_of_dfs, spdf_names) {
+  # Create an empty list to store the SpatialPointsDataFrames
+  list_of_spdfs <- list()
+  
+  for (i in seq_along(list_of_dfs)) {
+    # Extract the coordinates (LONGITUDE and LATITUDE) from the data frame
+    coord_cols <- list_of_dfs[[i]] %>%
+      dplyr::select(LONGITUDE, LATITUDE)
+
+    # Extract the attributes (NAME, ADDRESS, BEDS, TELEPHONE) from the data frame
+    info_cols <- list_of_dfs[[i]] %>%
+      dplyr::select(NAME, ADDRESS, BEDS, TELEPHONE)
+
+    # Set the projection (coordinate reference system) to EPSG:4326
+    p4s <- sp::CRS('+init=epsg:4326')
+
+    # Create the SpatialPointsDataFrame by combining the coordinates and attributes
+    spdf <- sp::SpatialPointsDataFrame(coords = coord_cols, data = info_cols, proj4string = p4s)
+
+    # Store the created SpatialPointsDataFrame in the list
+    list_of_spdfs[[i]] <- spdf
+  }
+  
+  return(list_of_spdfs)
+}
+
+# Call the function and store the resulting list of SpatialPointsDataFrames
+list_of_spdfs <- createSpatialPointsDataFrames(list_of_dfs, vector_spdf_names)
+```
+
+```{r}
+# Create a Leaflet map object
+map <- leaflet() %>%
+  
+  # Set the base map tiles to CartoDB Positron (a light-colored map)
+  addProviderTiles(providers$CartoDB.Positron)
+
+# Define a function to add circle markers for hospitals
+addHospitalMarkers <- function(map, data, group_name) {
+  map %>%
+    addCircleMarkers(
+      data = data,
+      color = 'white',
+      weight = 1,         # Set the weight of the outline
+      fillColor = 'blue',  # Set the fill color to black
+      fillOpacity = 0.7,    # Set fill opacity for the circle markers
+      radius = 4,
+      popup = paste(      # Define the popup content for each circle marker
+        'Corporation Name:', data$NAME, '<br>',
+        'Address:', data$ADDRESS, '<br>',
+        'Beds:', data$BEDS, '<br>',
+        'Phone:', data$TELEPHONE, '<br>'
+      ),
+      group = group_name   # Assign a group name for easy layer control later
+    )
+}
+
+# Loop through the hospital data frames and add circle markers for each hospital
+for (i in seq_along(list_of_spdfs)) {
+  map <- addHospitalMarkers(map, list_of_spdfs[[i]], vector_groups[i])
+}
+
+# Add a layer control to toggle the visibility of different marker groups
+map <- map %>%
+  addLegend(position = "topright",
+            title = "Marker Colors",
+            labels = c("Dispensaries", "Subjects"),
+            colors = c("blue","black"),
+            opacity = 1) %>%
+  addLayersControl(
+    overlayGroups = vector_groups,   # Group names to display in the control
+    options = layersControlOptions(collapsed = TRUE) # Expanded by default
+  )
+
+# Display the interactive Leaflet map
+map
+```
